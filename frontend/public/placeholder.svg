@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1100" viewBox="0 0 900 1100" role="img" aria-label="KED UZ placeholder">
+  <rect width="900" height="1100" fill="#f2f2ef"/>
+  <rect x="70" y="70" width="760" height="960" rx="42" fill="#ffffff" stroke="#deded8" stroke-width="2"/>
+  <path d="M294 640h312l-88-118-72 88-46-58-106 88Z" fill="#d8d8d0"/>
+  <circle cx="352" cy="454" r="42" fill="#d8d8d0"/>
+  <text x="450" y="735" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#9a9a90">KED UZ</text>
+  <text x="450" y="785" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#b0b0a8">Изображение скоро будет</text>
+</svg>
