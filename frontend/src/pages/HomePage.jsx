@@ -33,7 +33,7 @@ const showroomItems = [
   { id: 'interior', image: showroomInterior, labelKey: 'showroomGalleryInterior' },
   { id: 'shelves', image: showroomShelves, labelKey: 'showroomGalleryShelves' },
   { id: 'shoes', image: showroomShoes, labelKey: 'showroomGalleryShoes' },
-  { id: 'detail', image: showroomShelves, labelKey: 'showroomGalleryLogo' },
+  { id: 'detail', image: showroomInterior, labelKey: 'showroomGalleryLogo' },
 ]
 
 function ShowroomSection({ t }) {
@@ -61,15 +61,13 @@ function ShowroomSection({ t }) {
         {showroomItems.map((item, index) => (
           <article
             key={item.id}
-            className={`group relative overflow-hidden rounded-[18px] bg-white shadow-[0_18px_44px_rgba(15,15,16,0.07)] ${index === 0 ? 'lg:col-span-2' : ''}`}
+            className={`group relative aspect-[4/5] overflow-hidden rounded-[18px] bg-[#ebe7dc] shadow-[0_18px_44px_rgba(15,15,16,0.07)] lg:aspect-[3/4] ${index === 0 ? 'lg:col-span-2' : ''}`}
           >
-            <div className="aspect-[4/5] lg:aspect-[3/4]">
-              <img
-                src={item.image}
-                alt={t[item.labelKey]}
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.045]"
-              />
-            </div>
+            <img
+              src={item.image}
+              alt={t[item.labelKey]}
+              className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.045]"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/56 via-black/4 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-4 text-white">
               <p className="text-sm font-extrabold drop-shadow">{t[item.labelKey]}</p>
@@ -141,12 +139,12 @@ export function HomePage() {
   }, [backendProducts])
 
   const shoeProducts = useMemo(
-    () => backendProducts.filter((product) => product.type === 'shoe').slice(0, 6),
+    () => backendProducts.filter((product) => product.type === 'shoe' || product.section_slugs?.includes('shoe')).slice(0, 6),
     [backendProducts],
   )
 
   const clothingProducts = useMemo(
-    () => backendProducts.filter((product) => product.type === 'clothing').slice(0, 8),
+    () => backendProducts.filter((product) => product.type === 'clothing' || product.section_slugs?.includes('clothing')).slice(0, 8),
     [backendProducts],
   )
   const featuredProducts = useMemo(

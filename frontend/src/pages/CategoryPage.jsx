@@ -12,6 +12,39 @@ function getCategoryFallback(slug) {
   return homeCategories.find((item) => item.slug === slug) || catalogCategories.find((item) => item.slug === slug)
 }
 
+const sectionCategoryFilters = {
+  erkaklar: { gender: 'men' },
+  men: { gender: 'men' },
+  ayollar: { gender: 'women' },
+  women: { gender: 'women' },
+  unisex: { gender: 'unisex' },
+  kiyimlar: { type: 'clothing' },
+  clothing: { type: 'clothing' },
+  poyabzal: { type: 'shoe' },
+  shoe: { type: 'shoe' },
+  shoes: { type: 'shoe' },
+  yangi: { only_new: true },
+  new: { only_new: true },
+}
+
+function getSectionTitle(slug, t) {
+  const titles = {
+    erkaklar: t.navMen,
+    men: t.navMen,
+    ayollar: t.navWomen,
+    women: t.navWomen,
+    unisex: t.navUnisex,
+    kiyimlar: t.navClothing,
+    clothing: t.navClothing,
+    poyabzal: t.navShoes,
+    shoe: t.navShoes,
+    shoes: t.navShoes,
+    yangi: t.navNew,
+    new: t.navNew,
+  }
+  return titles[slug]
+}
+
 export function CategoryPage() {
   const { slug } = useParams()
   const language = useShopStore((state) => state.language)
@@ -38,7 +71,9 @@ export function CategoryPage() {
             page: 1,
             page_size: 60,
             category_id: backendCategory?.id,
-            type: getCategoryFallback(slug)?.targetType,
+            type: sectionCategoryFilters[slug]?.type || getCategoryFallback(slug)?.targetType,
+            gender: sectionCategoryFilters[slug]?.gender,
+            only_new: sectionCategoryFilters[slug]?.only_new,
             sort: 'newest',
           },
         })
@@ -55,8 +90,8 @@ export function CategoryPage() {
   }, [slug])
 
   const title = useMemo(
-    () => category?.[`name_${language}`] || category?.name_uz || category?.name_ru || t.categoryPageTitle,
-    [category, language, t.categoryPageTitle],
+    () => getSectionTitle(slug, t) || category?.[`name_${language}`] || category?.name_uz || category?.name_ru || t.categoryPageTitle,
+    [category, language, slug, t],
   )
   const description = category?.[`subtitle_${language}`] || ''
 

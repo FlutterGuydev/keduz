@@ -16,6 +16,19 @@ function getDisplayPrice(primaryPrice, fallbackPrice) {
   return fallbackPrice
 }
 
+function getProductImageCandidates(product, variants) {
+  return [
+    product.cover_image,
+    product.image,
+    ...(product.images || []),
+    ...variants.flatMap((variant) => [
+      variant.product?.cover_image,
+      variant.product?.image,
+      ...(variant.product?.images || []),
+    ]),
+  ].filter(Boolean)
+}
+
 export function ProductCard({ product }) {
   const language = useShopStore((state) => state.language)
   const favorites = useShopStore((state) => state.favorites)
@@ -31,13 +44,9 @@ export function ProductCard({ product }) {
   const detailUrl = `/product/${activeProductId}`
   const isFavorite = favorites.includes(activeProductId)
   const images = useMemo(() => {
-    const productImages = [
-      product.cover_image || product.image,
-      ...(product.images?.map((item) => item.image_url || item.url || item) || []),
-      ...variants.map((variant) => variant.product?.cover_image || variant.product?.image).filter(Boolean),
-    ].filter(Boolean)
-    return Array.from(new Set(productImages)).slice(0, 4).map(getImageUrl)
-  }, [product.cover_image, product.image, product.images, variants])
+    const productImages = getProductImageCandidates(product, variants).map(getImageUrl)
+    return Array.from(new Set(productImages)).filter(Boolean).slice(0, 4)
+  }, [product, variants])
   const image = images[activeImageIndex] || getImageUrl(product.cover_image || product.image)
   const name = product[`name_${language}`] || product.name_uz || product.name_ru
   const oldPrice = product.old_price ?? product.oldPrice
@@ -46,7 +55,7 @@ export function ProductCard({ product }) {
   const displayPrice = getDisplayPrice(selectedVariant?.price, product.price)
   const displayOldPrice = getDisplayPrice(selectedVariant?.old_price, oldPrice)
   const displayStock = selectedVariant?.stock_quantity ?? product.stock_quantity
-  const productLabel = product[`category_name_${language}`] || (product.type === 'shoe' ? t.shoeType : t.clothingType)
+  const productLabel = product[`category_name_${language}`] || (product.type === 'shoe' || product.section_slugs?.includes('shoe') ? t.shoeType : t.clothingType)
   const inStock = selectedVariant
     ? selectedVariant.in_stock
     : product.in_stock ?? product.inStock ?? true

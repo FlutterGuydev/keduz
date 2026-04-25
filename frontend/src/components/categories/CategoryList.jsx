@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { translations } from '../../i18n/translations'
 import { useShopStore } from '../../store/useShopStore'
 import clothingImage from '../../assets/products/model-1.JPG'
-import shoesImage from '../../assets/products/model-3.JPG'
+import shoesImage from '../../assets/categories/model-9.JPG'
 
 export function CategoryList() {
   const language = useShopStore((state) => state.language)
@@ -52,7 +52,7 @@ export function CategoryList() {
                 <img
                   src={category.image}
                   alt={category.title}
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.045]"
+                  className="h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.045]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/20 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">

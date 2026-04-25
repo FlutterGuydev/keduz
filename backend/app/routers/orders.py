@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from urllib.parse import urljoin
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -77,6 +78,18 @@ def get_product_image(product: Product | None) -> str | None:
     return None
 
 
+def build_public_image_url(image_url: str | None) -> str | None:
+    if not image_url:
+        return None
+    normalized = image_url.strip().replace("\\", "/")
+    if not normalized:
+        return None
+    if normalized.startswith("http://") or normalized.startswith("https://"):
+        return normalized
+    public_base_url = settings.backend_public_url.rstrip("/") + "/"
+    return urljoin(public_base_url, normalized.lstrip("/"))
+
+
 def resolve_local_upload_path(image_url: str | None) -> Path | None:
     if not image_url:
         return None
@@ -110,23 +123,15 @@ async def send_to_telegram(text: str, image_url: str | None = None) -> None:
 
     message_url = f"https://api.telegram.org/bot{token}/sendMessage"
     photo_url = f"https://api.telegram.org/bot{token}/sendPhoto"
+    public_image_url = build_public_image_url(image_url)
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            if image_url:
+            if public_image_url:
                 try:
-                    local_path = resolve_local_upload_path(image_url)
-                    if local_path:
-                        with local_path.open("rb") as image_file:
-                            response = await client.post(
-                                photo_url,
-                                data={"chat_id": chat_id, "caption": text},
-                                files={"photo": (local_path.name, image_file, "application/octet-stream")},
-                            )
-                    else:
-                        response = await client.post(
-                            photo_url,
-                            json={"chat_id": chat_id, "photo": image_url, "caption": text},
-                        )
+                    response = await client.post(
+                        photo_url,
+                        json={"chat_id": chat_id, "photo": public_image_url, "caption": text},
+                    )
                     response.raise_for_status()
                     logger.info("Telegram order photo notification sent to chat_id=%s", chat_id)
                     return
@@ -144,20 +149,11 @@ async def send_to_telegram(text: str, image_url: str | None = None) -> None:
 
 def format_order_message(order: Order, product: Product | None = None) -> str:
     size = order.selected_size or "-"
-    color = order.selected_color or "-"
     price = order.price if order.price is not None else 0
-    article = get_product_article(product, order.selected_size)
-    billz_id = product.billz_id if product and product.billz_id else "-"
-    local_id = order.product_id or "-"
     return (
         "🆕 YANGI BUYURTMA\n\n"
-        f"🆔 Product ID: {local_id}\n"
-        f"🏷 Artikul ID: {article}\n"
-        f"🔗 BILLZ ID: {billz_id}\n\n"
         f"👟 Mahsulot: {order.product_title}\n"
         f"📏 Razmer: {size}\n"
-        f"🎨 Rang: {color}\n"
-        f"📦 Soni: {order.quantity}\n"
         f"💰 Narx: {price} UZS\n\n"
         f"👤 Ism: {order.full_name}\n"
         f"📞 Telefon: {order.phone}"

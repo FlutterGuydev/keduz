@@ -15,24 +15,24 @@ import modelThreeImage from '../assets/products/model-3.JPG'
 
 export const branches = [
   {
-    id: 'chilonzor',
-    name_uz: 'Chilonzor filiali',
-    name_ru: 'Филиал Чиланзар',
-    address_uz: 'Toshkent, Chilonzor, Bunyodkor ko‘chasi 12',
-    address_ru: 'Ташкент, Чиланзар, улица Бунёдкор, 12',
-    phone: '+998 90 123 45 67',
-    hours_uz: 'Har kuni 09:00 — 21:00',
-    hours_ru: 'Ежедневно 09:00 — 21:00',
-  },
-  {
     id: 'yunusobod',
     name_uz: 'Yunusobod filiali',
     name_ru: 'Филиал Юнусабад',
-    address_uz: 'Toshkent, Yunusobod, Amir Temur shoh ko‘chasi 41',
-    address_ru: 'Ташкент, Юнусабад, проспект Амира Темура, 41',
-    phone: '+998 97 765 43 21',
-    hours_uz: 'Har kuni 10:00 — 22:00',
-    hours_ru: 'Ежедневно 10:00 — 22:00',
+    address_uz: 'Yunusobod, Mega Planet',
+    address_ru: 'Юнусабад, Mega Planet',
+    phone: '+998 90 942 03 01',
+    hours_uz: '10:00 – 22:00',
+    hours_ru: '10:00 – 22:00',
+  },
+  {
+    id: 'chilonzor',
+    name_uz: 'Chilonzor filiali',
+    name_ru: 'Филиал Чиланзар',
+    address_uz: 'Chilonzor, Shuxrat',
+    address_ru: 'Чиланзар, Shuxrat',
+    phone: '+998 90 942 03 01',
+    hours_uz: '10:00 – 22:00',
+    hours_ru: '10:00 – 22:00',
   },
 ]
 

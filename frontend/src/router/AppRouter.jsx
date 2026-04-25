@@ -16,11 +16,21 @@ import { FavoritesPage } from '../pages/FavoritesPage'
 import { HomePage } from '../pages/HomePage'
 import { NewPage } from '../pages/NewPage'
 
+function RootPage() {
+  const isAdminHost = window.location.hostname.toLowerCase().startsWith('admin.')
+
+  if (isAdminHost) {
+    return <Navigate to="/admin" replace />
+  }
+
+  return <HomePage />
+}
+
 export function AppRouter() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<RootPage />} />
         <Route path="/catalog" element={<BackendCatalogPage />} />
         <Route path="/category/:slug" element={<CategoryPage />} />
         <Route path="/product/:id" element={<BackendProductPage />} />

@@ -5,23 +5,28 @@ import Swal from 'sweetalert2'
 import { translations } from '../i18n/translations'
 import { useShopStore } from '../store/useShopStore'
 import { formatPrice } from '../utils/formatters'
-import { getImageUrl, handleImageError } from '../utils/imageUrl'
+import { getImageUrl, handleImageError, PLACEHOLDER_IMAGE } from '../utils/imageUrl'
 import { getBaseProductName, getProductSizeFromName, groupProductsByBaseName, splitVariantName } from '../utils/productGrouping'
 import { storeApi } from '../utils/storeApi'
 import { SizeGuide } from '../components/product/SizeGuide'
 
 function getImageUrls(product, groupedVariants = []) {
-  const ownGallery = product?.images?.map((image) => image.image_url).filter(Boolean) || []
+  const ownGallery = product?.images?.filter(Boolean) || []
   const siblingImages = groupedVariants
-    .map((variant) => variant.product?.cover_image || variant.product?.image)
+    .flatMap((variant) => [
+      variant.product?.cover_image,
+      variant.product?.image,
+      ...(variant.product?.images || []),
+    ])
     .filter(Boolean)
   const images = [
-    product?.cover_image || product?.image,
+    product?.cover_image,
+    product?.image,
     ...ownGallery,
     ...siblingImages,
   ].filter(Boolean)
-  const uniqueImages = Array.from(new Set(images))
-  return uniqueImages.length ? uniqueImages.map(getImageUrl) : [getImageUrl('')]
+  const uniqueImages = Array.from(new Set(images.map(getImageUrl))).filter(Boolean)
+  return uniqueImages.length ? uniqueImages : [PLACEHOLDER_IMAGE]
 }
 
 function getColorValue(color) {
@@ -116,7 +121,6 @@ export function BackendProductPage() {
           signal: controller.signal,
         })
         const detail = response.data
-        console.log('Storefront product response', detail)
         let variants = []
         const baseName = getBaseProductName(detail, language)
         const ownSize = getProductSizeFromName(detail)
@@ -205,7 +209,7 @@ export function BackendProductPage() {
     const cleanedPhone = phone.replace(/\D/g, '')
 
     if (!fullName || !cleanedPhone) {
-      setOrderError('Заполните имя и телефон.')
+      setOrderError('Ism va telefon raqamini kiriting.')
       return
     }
     setOrderSubmitting(true)
@@ -227,11 +231,11 @@ export function BackendProductPage() {
       Swal.fire({
         icon: 'success',
         title: 'Buyurtma qabul qilindi!',
-        text: 'Tez orada siz bilan bog‘lanamiz',
+        text: 'Tez orada siz bilan bog‘lanamiz.',
         confirmButtonColor: '#ff3b30',
       })
     } catch (err) {
-      setOrderError(err.response?.data?.detail || 'Не удалось отправить заказ. Позвоните нам, и мы поможем оформить заказ.')
+      setOrderError(err.response?.data?.detail || 'Buyurtmani yuborib bo‘lmadi. Iltimos, telefon orqali bog‘laning.')
     } finally {
       setOrderSubmitting(false)
     }
@@ -252,8 +256,6 @@ export function BackendProductPage() {
       </div>
     )
   }
-
-  console.log(product)
 
   return (
     <div className="mx-auto max-w-[1560px] px-3 py-6 sm:px-6 sm:py-10 lg:px-10 xl:px-14">
@@ -312,7 +314,7 @@ export function BackendProductPage() {
           </div>
 
           <div className={`mt-5 inline-flex rounded-full px-3 py-1.5 text-xs font-bold uppercase ${inStock ? 'bg-green-50 text-green-700' : 'bg-zinc-100 text-zinc-500'}`}>
-            {inStock ? `В наличии: ${visibleStockQuantity}` : 'Нет в наличии'}
+            {inStock ? `Mavjud: ${visibleStockQuantity}` : 'Mavjud emas'}
           </div>
 
           {description ? (
@@ -358,7 +360,7 @@ export function BackendProductPage() {
                       setSizeError(false)
                       setOrderAccepted(false)
                     }}
-                    title={item.in_stock ? `В наличии: ${item.stock_quantity}` : 'Нет в наличии'}
+                    title={item.in_stock ? `Omborda: ${item.stock_quantity}` : 'Mavjud emas'}
                     className={`relative min-h-12 rounded-xl border px-3 py-3 text-sm font-semibold transition-all sm:min-w-[54px] sm:rounded-full sm:px-4 ${
                       selectedSize === item.size
                         ? 'border-[#ff3b30] bg-[#ff3b30] text-white'
@@ -375,6 +377,12 @@ export function BackendProductPage() {
                 ))}
               </div>
               {sizeError ? <p className="mt-3 text-xs font-semibold text-[#ff3b30]">{t.sizeRequired}</p> : null}
+              {selectedSize ? (
+                <p className="mt-3 text-sm font-semibold text-zinc-700">
+                  Tanlangan o‘lcham: <span className="text-black">{selectedSize}</span>
+                  {selectedStockItem ? <span className="text-zinc-500"> · Omborda: {selectedStockItem.stock_quantity}</span> : null}
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -385,7 +393,7 @@ export function BackendProductPage() {
               onClick={handleOrder}
               className="inline-flex min-h-12 justify-center rounded-xl bg-[#ff3b30] px-6 py-4 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(255,59,48,0.24)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_46px_rgba(255,59,48,0.32)] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 disabled:shadow-none sm:flex-none sm:rounded-full"
             >
-              {canAddToCart ? 'Заказать' : 'Нет в наличии'}
+              {canAddToCart ? 'Buyurtma berish' : 'Mavjud emas'}
             </button>
             <Link to="/catalog" className="inline-flex min-h-12 justify-center rounded-xl border border-black/10 bg-white px-6 py-4 text-sm font-semibold text-black transition-colors hover:border-black hover:bg-black hover:text-white sm:flex-none sm:rounded-full">
               {t.breadcrumbsCatalog}
@@ -393,7 +401,7 @@ export function BackendProductPage() {
           </div>
           {orderAccepted ? (
             <p className="mt-4 rounded-[18px] bg-green-50 px-4 py-3 text-sm font-semibold leading-6 text-green-700">
-              Заказ принят. Наш оператор свяжется с вами в течение 5 минут.
+              Buyurtma qabul qilindi! Tez orada siz bilan bog‘lanamiz.
             </p>
           ) : null}
         </div>
@@ -406,9 +414,9 @@ export function BackendProductPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-extrabold text-black">Оформить заказ</h2>
+                <h2 className="text-2xl font-extrabold text-black">Buyurtma qoldiring</h2>
                 <p className="mt-2 text-sm leading-6 text-zinc-600">
-                  Operator siz bilan tez orada bog'lanadi.
+                  Operator siz bilan bog‘lanadi.
                 </p>
               </div>
               <button
@@ -423,15 +431,15 @@ export function BackendProductPage() {
 
             <div className="mt-5 rounded-[20px] bg-[#f7f5f2] p-4 text-sm text-zinc-700">
               <p className="font-bold text-black">{displayName}</p>
-              <p className="mt-1">Размер: {selectedSize || '-'}</p>
-              <p>Цена: {formatPrice(activePrice)}</p>
+              <p className="mt-1">O‘lcham: {selectedSize || '-'}</p>
+              <p>Narx: {formatPrice(activePrice)}</p>
             </div>
 
             <div className="mt-5 space-y-3">
               <input
                 value={orderForm.full_name}
                 onChange={(event) => setOrderForm((current) => ({ ...current, full_name: event.target.value }))}
-                placeholder="Имя и фамилия"
+                placeholder="Ism va familiya"
                 className="w-full rounded-full border border-black/10 px-5 py-3.5 text-sm outline-none focus:border-black"
               />
               <input
@@ -448,9 +456,9 @@ export function BackendProductPage() {
                 disabled={orderSubmitting}
                 className="flex w-full items-center justify-center rounded-full bg-[#ff3b30] px-6 py-4 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(255,59,48,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {orderSubmitting ? 'Отправляем...' : 'Отправить заказ'}
+                {orderSubmitting ? 'Yuborilmoqda...' : 'Buyurtma qoldirish'}
               </button>
-              <p className="text-center text-xs text-zinc-500">Телефон для заказа: +998 90 123 45 67</p>
+              <p className="text-center text-xs text-zinc-500">Buyurtma qoldiring, operator siz bilan bog‘lanadi</p>
             </div>
           </form>
         </div>

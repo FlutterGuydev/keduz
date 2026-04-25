@@ -2,17 +2,23 @@ import { API_BASE_URL } from './storeApi.js'
 
 export const PLACEHOLDER_IMAGE = '/placeholder.svg'
 
-export function getImageUrl(path) {
+function getRawImageValue(image) {
+  if (!image) return ''
+  if (typeof image === 'string') return image
+  return image.image_url || image.url || image.src || ''
+}
+
+export function getImageUrl(image) {
+  const rawValue = getRawImageValue(image)
+  if (!rawValue) return PLACEHOLDER_IMAGE
+
+  const path = rawValue.trim().replace(/\\/g, '/')
   if (!path) return PLACEHOLDER_IMAGE
+
   if (/^(https?:|data:|blob:)/i.test(path)) {
     return path
   }
-  if (path.startsWith('/')) {
-    if (path.startsWith('/uploads/')) {
-      return `${API_BASE_URL.replace(/\/$/, '')}${path}`
-    }
-    return path
-  }
+
   return `${API_BASE_URL.replace(/\/$/, '')}/${path.replace(/^\/+/, '')}`
 }
 

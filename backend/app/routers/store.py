@@ -7,7 +7,7 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
-from app.models import Category, Product
+from app.models import Category, Product, ProductImage
 from app.product_sections import derive_section_slugs, normalize_section_slugs
 from app.schemas import (
     PaginatedStorefrontProductsResponse,
@@ -148,6 +148,12 @@ def list_storefront_products(
             Product.billz_sku,
             Product.slug,
             Product.cover_image,
+            select(ProductImage.image_url)
+            .where(ProductImage.product_id == Product.id)
+            .order_by(ProductImage.id)
+            .limit(1)
+            .scalar_subquery()
+            .label("first_gallery_image"),
             Product.price,
             Product.old_price,
             Product.discount_percent,
@@ -176,7 +182,8 @@ def list_storefront_products(
         data["billz_title"] = fallback
         data["name_uz"] = _display_name(data.get("name_uz"), fallback)
         data["name_ru"] = _display_name(data.get("name_ru"), fallback)
-        data["image"] = data.get("cover_image")
+        data["image"] = data.get("cover_image") or data.pop("first_gallery_image", None)
+        data["cover_image"] = data.get("cover_image") or data["image"]
         data["section_slugs"] = derive_section_slugs(SimpleNamespace(**data))
         items.append(StorefrontProductSummary.model_validate(data))
 

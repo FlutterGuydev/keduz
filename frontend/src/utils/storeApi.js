@@ -1,8 +1,7 @@
 import axios from 'axios'
+import { API_BASE_URL } from './apiConfig.js'
 
-const viteEnv = import.meta.env || {}
-
-export const API_BASE_URL = viteEnv.VITE_API_URL || 'http://127.0.0.1:8000'
+export { API_BASE_URL }
 
 export const storeApi = axios.create({
   baseURL: API_BASE_URL,

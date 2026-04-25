@@ -30,6 +30,10 @@ class Settings(BaseSettings):
         ],
         validation_alias=AliasChoices("BACKEND_CORS_ORIGINS", "CORS_ORIGINS"),
     )
+    backend_public_url: str = Field(
+        default="http://127.0.0.1:8000",
+        validation_alias=AliasChoices("BACKEND_PUBLIC_URL", "PUBLIC_API_URL"),
+    )
 
     # BILLZ
     billz_api_url: str | None = Field(

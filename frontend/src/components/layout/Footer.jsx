@@ -1,11 +1,10 @@
-﻿import { FiFacebook, FiInstagram, FiSend } from 'react-icons/fi'
+import { FiInstagram, FiSend } from 'react-icons/fi'
 import { translations } from '../../i18n/translations'
 import { useShopStore } from '../../store/useShopStore'
 
 const socialLinks = [
-  { icon: FiInstagram, label: 'Instagram', href: 'https://instagram.com' },
-  { icon: FiSend, label: 'Telegram', href: 'https://t.me' },
-  { icon: FiFacebook, label: 'Facebook', href: 'https://facebook.com' },
+  { icon: FiInstagram, label: 'Instagram', href: 'https://instagram.com/ked_uzz' },
+  { icon: FiSend, label: 'Telegram', href: 'https://t.me/ked_uzz' },
 ]
 
 export function Footer() {
@@ -21,13 +20,15 @@ export function Footer() {
         </div>
         <div>
           <h3 className="text-sm font-bold text-white">{t.contacts}</h3>
-          <p className="mt-4 text-sm text-white/62">+998 90 123 45 67</p>
-          <p className="mt-2 text-sm text-white/62">+998 97 765 43 21</p>
+          <a href="tel:+998909420301" className="mt-4 block text-sm text-white/62 transition-colors hover:text-white">
+            +998 90 942 03 01
+          </a>
         </div>
         <div>
           <h3 className="text-sm font-bold text-white">{t.addresses}</h3>
           <p className="mt-4 text-sm text-white/62">{t.addressOne}</p>
           <p className="mt-2 text-sm text-white/62">{t.addressTwo}</p>
+          <p className="mt-2 text-sm font-semibold text-white/76">{t.workingHours}</p>
         </div>
         <div>
           <h3 className="text-sm font-bold text-white">{t.social}</h3>
@@ -37,8 +38,9 @@ export function Footer() {
                 key={label}
                 href={href}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="grid h-11 w-11 place-items-center rounded-full border border-white/10 text-white/70 transition-all hover:-translate-y-0.5 hover:border-white/25 hover:bg-white hover:text-black"
+                aria-label={label}
               >
                 <Icon size={18} />
               </a>

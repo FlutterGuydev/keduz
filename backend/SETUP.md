@@ -63,8 +63,8 @@ python -m app.create_admin
 Default login:
 
 ```text
-username: admin
-password: admin123
+username: admin@keduz.uz
+password: 12345
 ```
 
 ## 6. Seed demo categories and products
@@ -99,8 +99,8 @@ Use:
 
 ```json
 {
-  "username": "admin",
-  "password": "admin123"
+  "username": "admin@keduz.uz",
+  "password": "12345"
 }
 ```
 
