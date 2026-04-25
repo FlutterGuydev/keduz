@@ -27,6 +27,15 @@ function formatMovementItem(item) {
   return [date, type, quantity !== undefined ? `кол-во: ${quantity}` : null].filter(Boolean).join(' / ') || JSON.stringify(item)
 }
 
+const SECTION_OPTIONS = [
+  { slug: 'men', label: 'Erkaklar' },
+  { slug: 'women', label: 'Ayollar' },
+  { slug: 'unisex', label: 'Unisex' },
+  { slug: 'clothing', label: 'Kiyimlar' },
+  { slug: 'shoe', label: 'Poyabzal' },
+  { slug: 'new', label: 'Yangi' },
+]
+
 function StatusPill({ active, children }) {
   return (
     <span className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${active ? 'bg-green-50 text-green-700' : 'bg-zinc-100 text-zinc-500'}`}>
@@ -76,6 +85,7 @@ export function AdminProductEditPage() {
   const [statusForm, setStatusForm] = useState(null)
   const [coverImage, setCoverImage] = useState('')
   const [galleryImages, setGalleryImages] = useState([])
+  const [categoryOptions, setCategoryOptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
   const [uploading, setUploading] = useState('')
@@ -118,6 +128,7 @@ export function AdminProductEditPage() {
         description_ru: fieldValue(data.website.description_ru),
         category_id: data.website.category_id ?? '',
         slug: fieldValue(data.website.slug),
+        section_slugs: data.website.section_slugs || [],
       })
       setStatusForm({
         is_active: Boolean(data.imported.is_active),
@@ -134,6 +145,15 @@ export function AdminProductEditPage() {
       setMessages({ page: err.response?.data?.detail || 'Не удалось загрузить товар' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadCategories() {
+    try {
+      const response = await adminApi.get('/categories')
+      setCategoryOptions(response.data || [])
+    } catch {
+      setCategoryOptions([])
     }
   }
 
@@ -154,6 +174,7 @@ export function AdminProductEditPage() {
   }
 
   useEffect(() => {
+    loadCategories()
     loadProduct()
     loadStockInfo()
   }, [id])
@@ -164,6 +185,16 @@ export function AdminProductEditPage() {
 
   function updateStatus(field, value) {
     setStatusForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function toggleSection(slug) {
+    setContentForm((current) => {
+      const currentSections = current.section_slugs || []
+      const section_slugs = currentSections.includes(slug)
+        ? currentSections.filter((item) => item !== slug)
+        : [...currentSections, slug]
+      return { ...current, section_slugs }
+    })
   }
 
   function removeGalleryImage(index) {
@@ -228,6 +259,7 @@ export function AdminProductEditPage() {
         description_ru: contentForm.description_ru || null,
         category_id: contentForm.category_id === '' ? null : Number(contentForm.category_id),
         slug: contentForm.slug || null,
+        section_slugs: contentForm.section_slugs || [],
       })
       await loadProduct()
       setMessages({ content: 'Контент сохранен.' })
@@ -394,13 +426,56 @@ export function AdminProductEditPage() {
                   />
                 </label>
                 <label className="grid gap-2 text-sm">
-                  ID категории
-                  <input
+                  Kategoriya
+                  <select
                     value={contentForm.category_id}
                     onChange={(event) => updateContent('category_id', event.target.value)}
-                    className="rounded-md border border-black/15 px-3 py-2"
-                  />
+                    className="rounded-md border border-black/15 bg-white px-3 py-2"
+                  >
+                    <option value="">Kategoriya tanlanmagan</option>
+                    {categoryOptions.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name_uz || category.name_ru} ({category.slug})
+                      </option>
+                    ))}
+                  </select>
                 </label>
+              </div>
+              <div className="rounded-md border border-black/10 bg-black/[0.02] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Saytdagi bo'limlar</h3>
+                    <p className="mt-1 text-xs leading-5 text-black/50">
+                      Bir mahsulot bir nechta bo'limda ko'rinishi mumkin. Yangi asosiy bo'limlarni almashtirmaydi.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(contentForm.section_slugs || []).map((slug) => {
+                      const section = SECTION_OPTIONS.find((item) => item.slug === slug)
+                      return (
+                        <span key={slug} className="rounded-full bg-black px-2.5 py-1 text-xs font-semibold text-white">
+                          {section?.label || slug}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {SECTION_OPTIONS.map((section) => (
+                    <label key={section.slug} className="flex min-h-12 items-center justify-between gap-3 rounded-md border border-black/10 bg-white px-3 py-2 text-sm">
+                      <span>
+                        <span className="block font-semibold">{section.label}</span>
+                        <span className="text-xs text-black/45">{section.slug === 'new' ? "Qo'shimcha bo'lim" : 'Storefront filtri'}</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={(contentForm.section_slugs || []).includes(section.slug)}
+                        onChange={() => toggleSection(section.slug)}
+                        className="h-5 w-5 accent-black"
+                      />
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             <Notice message={messages.content} />

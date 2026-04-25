@@ -1,5 +1,4 @@
 ﻿import { FiFacebook, FiInstagram, FiSend } from 'react-icons/fi'
-import logoImage from '../../assets/logo/ked-logo-light.png'
 import { translations } from '../../i18n/translations'
 import { useShopStore } from '../../store/useShopStore'
 
@@ -15,12 +14,10 @@ export function Footer() {
 
   return (
     <footer className="mt-16 border-t border-black/6 bg-[#111111] text-white lg:mt-20">
-      <div className="mx-auto grid max-w-[1560px] gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] lg:px-10 lg:py-16 xl:px-14">
+      <div className="mx-auto grid max-w-[1560px] gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[0.9fr_0.9fr_0.9fr_0.9fr] lg:px-10 lg:py-14 xl:px-14">
         <div className="max-w-sm">
-          <div className="ked-logo-mark">
-            <img src={logoImage} alt="KED UZ" />
-          </div>
-          <p className="mt-5 text-sm leading-7 text-white/62">{t.footerLead}</p>
+          <h3 className="text-sm font-bold text-white">KED UZ</h3>
+          <p className="mt-4 text-sm leading-7 text-white/62">{t.footerLead}</p>
         </div>
         <div>
           <h3 className="text-sm font-bold text-white">{t.contacts}</h3>

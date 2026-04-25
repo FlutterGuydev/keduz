@@ -1,4 +1,5 @@
 from math import ceil
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, exists, func, or_, select
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import get_current_admin
 from app.db import get_db
 from app.models import Category, InventoryMovement, Product, ProductImage
+from app.product_sections import apply_section_slugs, derive_section_slugs
 from app.schemas import (
     AdminImportedProductSummary,
     BillzImportedData,
@@ -56,6 +58,7 @@ def has_manual_description(product: Product) -> bool:
 
 
 def to_admin_detail(product: Product) -> ProductAdminDetail:
+    section_slugs = derive_section_slugs(product)
     return ProductAdminDetail(
         id=product.id,
         imported=BillzImportedData(
@@ -80,6 +83,7 @@ def to_admin_detail(product: Product) -> ProductAdminDetail:
             show_in_banner=product.show_in_banner,
             is_published=product.is_published,
             slug=product.slug,
+            section_slugs=section_slugs,
             images=[ProductImageRead.model_validate(image) for image in product.images],
         ),
         in_stock=product.in_stock,
@@ -182,6 +186,7 @@ def list_imported_products(
             Product.featured,
             Product.show_in_banner,
             Product.last_synced_at,
+            Product.section_slugs,
         )
         .outerjoin(Category, Product.category_id == Category.id)
         .where(*filters)
@@ -190,8 +195,14 @@ def list_imported_products(
         .limit(page_size)
     ).mappings()
 
+    items = []
+    for row in rows:
+        data = dict(row)
+        data["section_slugs"] = derive_section_slugs(SimpleNamespace(**data))
+        items.append(AdminImportedProductSummary.model_validate(data))
+
     return PaginatedAdminImportedProductsResponse(
-        items=[AdminImportedProductSummary.model_validate(dict(row)) for row in rows],
+        items=items,
         total=total,
         page=page,
         page_size=page_size,
@@ -253,9 +264,12 @@ def update_product_content(
     product = get_admin_product_or_404(db, product_id)
     data = payload.model_dump(exclude_unset=True)
     ensure_category_exists(db, data.get("category_id"))
+    section_slugs = data.pop("section_slugs", None)
 
     for field, value in data.items():
         setattr(product, field, value)
+    if section_slugs is not None:
+        apply_section_slugs(product, section_slugs)
 
     commit_or_400(db)
     db.refresh(product)

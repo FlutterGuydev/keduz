@@ -48,6 +48,7 @@ class Product(Base):
     gender: Mapped[str | None] = mapped_column(String(40), nullable=True)
     type: Mapped[str | None] = mapped_column(String(60), nullable=True)
     is_new: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    section_slugs: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     cover_image: Mapped[str | None] = mapped_column(String(500), nullable=True)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     stock_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

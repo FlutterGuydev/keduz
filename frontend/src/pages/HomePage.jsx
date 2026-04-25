@@ -10,7 +10,6 @@ import { storeApi } from '../utils/storeApi'
 import showroomInterior from '../assets/products/model-2.JPG'
 import showroomShelves from '../assets/products/model-1.JPG'
 import showroomShoes from '../assets/products/model-3.JPG'
-import showroomLogo from '../assets/logo/image.png'
 
 function HomeSectionHeader({ title, description, action }) {
   return (
@@ -34,25 +33,25 @@ const showroomItems = [
   { id: 'interior', image: showroomInterior, labelKey: 'showroomGalleryInterior' },
   { id: 'shelves', image: showroomShelves, labelKey: 'showroomGalleryShelves' },
   { id: 'shoes', image: showroomShoes, labelKey: 'showroomGalleryShoes' },
-  { id: 'logo', image: showroomLogo, labelKey: 'showroomGalleryLogo' },
+  { id: 'detail', image: showroomShelves, labelKey: 'showroomGalleryLogo' },
 ]
 
 function ShowroomSection({ t }) {
   return (
-    <section className="overflow-hidden rounded-[24px] bg-[#111111] px-4 py-5 text-white shadow-[0_24px_70px_rgba(15,15,16,0.16)] sm:rounded-[30px] sm:px-7 sm:py-8 lg:px-9 lg:py-10">
+    <section className="overflow-hidden rounded-[24px] border border-black/6 bg-[#f4f1ea] px-4 py-5 text-black shadow-[0_24px_70px_rgba(15,15,16,0.08)] sm:rounded-[30px] sm:px-7 sm:py-8 lg:px-9 lg:py-10">
       <div className="mb-5 flex flex-col gap-2 sm:mb-7 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/48">{t.showroomEyebrow}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/45">{t.showroomEyebrow}</p>
           <h2 className="mt-2 text-[1.72rem] font-extrabold leading-[1.05] sm:text-4xl lg:text-[2.65rem]">
             {t.showroomTitle}
           </h2>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-white/68 sm:text-[15px]">
+          <p className="mt-3 max-w-xl text-sm leading-6 text-black/60 sm:text-[15px]">
             {t.showroomSubtitle}
           </p>
         </div>
         <Link
           to="/contact"
-          className="hidden rounded-full bg-white px-5 py-3 text-sm font-extrabold text-black transition-colors hover:bg-[#f0eee9] sm:inline-flex"
+          className="hidden rounded-full bg-black px-5 py-3 text-sm font-extrabold text-white transition-colors hover:bg-[#ff3b30] sm:inline-flex"
         >
           {t.showroomCta}
         </Link>
@@ -62,18 +61,18 @@ function ShowroomSection({ t }) {
         {showroomItems.map((item, index) => (
           <article
             key={item.id}
-            className={`group relative overflow-hidden rounded-[18px] bg-white/8 ${index === 0 ? 'lg:col-span-2' : ''}`}
+            className={`group relative overflow-hidden rounded-[18px] bg-white shadow-[0_18px_44px_rgba(15,15,16,0.07)] ${index === 0 ? 'lg:col-span-2' : ''}`}
           >
-            <div className={`aspect-[4/5] lg:aspect-[3/4] ${item.id === 'logo' ? 'bg-white' : ''}`}>
+            <div className="aspect-[4/5] lg:aspect-[3/4]">
               <img
                 src={item.image}
                 alt={t[item.labelKey]}
-                className={`h-full w-full transition-transform duration-700 group-hover:scale-[1.045] ${item.id === 'logo' ? 'object-contain p-8 opacity-100' : 'object-cover opacity-86'}`}
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.045]"
               />
             </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/8 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 p-4">
-              <p className="text-sm font-extrabold">{t[item.labelKey]}</p>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/56 via-black/4 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+              <p className="text-sm font-extrabold drop-shadow">{t[item.labelKey]}</p>
             </div>
           </article>
         ))}

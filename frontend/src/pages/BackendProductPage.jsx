@@ -408,7 +408,7 @@ export function BackendProductPage() {
               <div>
                 <h2 className="text-2xl font-extrabold text-black">Оформить заказ</h2>
                 <p className="mt-2 text-sm leading-6 text-zinc-600">
-                  BILLZ не используется для заказов. Заявка сохраняется только в KED UZ.
+                  Operator siz bilan tez orada bog'lanadi.
                 </p>
               </div>
               <button

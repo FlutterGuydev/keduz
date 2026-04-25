@@ -1,12 +1,14 @@
 from decimal import Decimal
 from math import ceil
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
 from app.models import Category, Product
+from app.product_sections import derive_section_slugs, normalize_section_slugs
 from app.schemas import (
     PaginatedStorefrontProductsResponse,
     ProductColorRead,
@@ -57,13 +59,20 @@ def _storefront_filters(
     if category_id is not None:
         filters.append(Product.category_id == category_id)
     if gender:
-        filters.append(func.lower(func.coalesce(Product.gender, "")) == gender.strip().lower())
+        section = normalize_section_slugs([gender])
+        section_filter = _section_filter(section[0]) if section else None
+        legacy_filter = func.lower(func.coalesce(Product.gender, "")) == gender.strip().lower()
+        filters.append(or_(section_filter, legacy_filter) if section_filter is not None else legacy_filter)
     if product_type:
-        filters.append(func.lower(func.coalesce(Product.type, "")) == product_type.strip().lower())
+        section = normalize_section_slugs([product_type])
+        section_filter = _section_filter(section[0]) if section else None
+        legacy_filter = func.lower(func.coalesce(Product.type, "")) == product_type.strip().lower()
+        filters.append(or_(section_filter, legacy_filter) if section_filter is not None else legacy_filter)
     if featured is not None:
         filters.append(Product.featured.is_(featured))
     if only_new is not None:
-        filters.append(Product.is_new.is_(only_new))
+        new_filter = or_(Product.is_new.is_(True), _section_filter("new"))
+        filters.append(new_filter if only_new else ~new_filter)
     if only_in_stock:
         filters.append(Product.stock_quantity > 0)
     if min_price is not None:
@@ -72,6 +81,10 @@ def _storefront_filters(
         filters.append(Product.price <= max_price)
 
     return filters
+
+
+def _section_filter(section_slug: str):
+    return func.lower(cast(func.coalesce(Product.section_slugs, "[]"), String)).like(f'%"{section_slug.lower()}"%')
 
 
 def _order_by(sort: str | None):
@@ -144,6 +157,7 @@ def list_storefront_products(
             Product.featured,
             Product.gender,
             Product.type,
+            Product.section_slugs,
             Product.category_id,
             Category.name_uz.label("category_name_uz"),
             Category.name_ru.label("category_name_ru"),
@@ -163,6 +177,7 @@ def list_storefront_products(
         data["name_uz"] = _display_name(data.get("name_uz"), fallback)
         data["name_ru"] = _display_name(data.get("name_ru"), fallback)
         data["image"] = data.get("cover_image")
+        data["section_slugs"] = derive_section_slugs(SimpleNamespace(**data))
         items.append(StorefrontProductSummary.model_validate(data))
 
     return PaginatedStorefrontProductsResponse(
@@ -205,6 +220,7 @@ def _to_storefront_detail(product: Product) -> StorefrontProductDetail:
         featured=product.featured,
         gender=product.gender,
         type=product.type,
+        section_slugs=derive_section_slugs(product),
         category=category,
         sizes=[ProductSizeRead.model_validate(size) for size in product.sizes],
         colors=[ProductColorRead.model_validate(color) for color in product.colors],

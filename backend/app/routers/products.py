@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import get_current_admin
 from app.db import get_db
 from app.models import Category, Product, ProductColor, ProductImage, ProductSize
+from app.product_sections import apply_section_slugs
 from app.schemas import ProductCreate, ProductRead, ProductUpdate
 
 
@@ -69,7 +70,10 @@ def get_product(product_id: int, db: Session = Depends(get_db)) -> Product:
 def create_product(payload: ProductCreate, db: Session = Depends(get_db)) -> Product:
     ensure_category_exists(db, payload.category_id)
     data = payload.model_dump(exclude={"images", "sizes", "colors"})
+    section_slugs = data.pop("section_slugs", None)
     product = Product(**data)
+    if section_slugs is not None:
+        apply_section_slugs(product, section_slugs)
     apply_product_children(product, payload)
 
     db.add(product)
@@ -86,12 +90,15 @@ def update_product(
 ) -> Product:
     product = get_product_or_404(db, product_id)
     data = payload.model_dump(exclude_unset=True, exclude={"images", "sizes", "colors"})
+    section_slugs = data.pop("section_slugs", None)
 
     if "category_id" in data and data["category_id"] is not None:
         ensure_category_exists(db, data["category_id"])
 
     for field, value in data.items():
         setattr(product, field, value)
+    if section_slugs is not None:
+        apply_section_slugs(product, section_slugs)
 
     apply_product_children(product, payload)
     db.commit()

@@ -8,6 +8,7 @@ SQLITE_PRODUCT_COLUMNS: dict[str, str] = {
     "is_published": "BOOLEAN NOT NULL DEFAULT 0",
     "featured": "BOOLEAN NOT NULL DEFAULT 0",
     "show_in_banner": "BOOLEAN NOT NULL DEFAULT 0",
+    "section_slugs": "JSON",
     "slug": "VARCHAR(220)",
     "billz_id": "VARCHAR(120)",
     "billz_sku": "VARCHAR(160)",

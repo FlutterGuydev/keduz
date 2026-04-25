@@ -145,6 +145,7 @@ class ProductBase(BaseModel):
     gender: str | None = Field(default=None, max_length=40)
     type: str | None = Field(default=None, max_length=60)
     is_new: bool = False
+    section_slugs: list[str] | None = Field(default_factory=list)
     cover_image: str | None = None
     in_stock: bool = True
     stock_quantity: int = Field(default=0, ge=0)
@@ -178,6 +179,7 @@ class ProductUpdate(BaseModel):
     gender: str | None = Field(default=None, max_length=40)
     type: str | None = Field(default=None, max_length=60)
     is_new: bool | None = None
+    section_slugs: list[str] | None = None
     cover_image: str | None = None
     in_stock: bool | None = None
     stock_quantity: int | None = Field(default=None, ge=0)
@@ -257,6 +259,7 @@ class ProductWebsiteContent(BaseModel):
     show_in_banner: bool
     is_published: bool
     slug: str | None = None
+    section_slugs: list[str] = Field(default_factory=list)
     images: list[ProductImageRead] = Field(default_factory=list)
 
 
@@ -293,6 +296,7 @@ class AdminImportedProductSummary(BaseModel):
     featured: bool
     show_in_banner: bool
     last_synced_at: datetime | None = None
+    section_slugs: list[str] = Field(default_factory=list)
 
 
 class InventoryMovementRead(BaseModel):
@@ -357,6 +361,7 @@ class ProductAdminContentUpdate(BaseModel):
     show_in_banner: bool | None = None
     is_published: bool | None = None
     slug: str | None = Field(default=None, max_length=220)
+    section_slugs: list[str] | None = None
 
 
 class ProductAdminImagesUpdate(BaseModel):
@@ -457,6 +462,7 @@ class StorefrontProductSummary(BaseModel):
     featured: bool
     gender: str | None = None
     type: str | None = None
+    section_slugs: list[str] = Field(default_factory=list)
     category_id: int | None = None
     category_name_uz: str | None = None
     category_name_ru: str | None = None
@@ -491,6 +497,7 @@ class StorefrontProductDetail(BaseModel):
     featured: bool
     gender: str | None = None
     type: str | None = None
+    section_slugs: list[str] = Field(default_factory=list)
     category: StorefrontCategoryInfo | None = None
     sizes: list[ProductSizeRead] = Field(default_factory=list)
     colors: list[ProductColorRead] = Field(default_factory=list)
