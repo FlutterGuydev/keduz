@@ -283,6 +283,7 @@ class AdminImportedProductSummary(BaseModel):
     website_title_uz: str
     website_title_ru: str
     stock_quantity: int
+    size_summary: str | None = None
     price: Decimal
     old_price: Decimal | None = None
     is_active: bool

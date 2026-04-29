@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_current_admin
 from app.db import get_db
-from app.models import Category, InventoryMovement, Product, ProductImage
+from app.models import Category, InventoryMovement, Product, ProductImage, ProductVariant
 from app.product_sections import apply_section_slugs, derive_section_slugs
 from app.schemas import (
     AdminImportedProductSummary,
@@ -164,7 +164,7 @@ def list_imported_products(
     total_pages = ceil(total / page_size) if total else 0
     offset = (page - 1) * page_size
 
-    rows = db.execute(
+    rows = list(db.execute(
         select(
             Product.id,
             Product.billz_id,
@@ -193,11 +193,32 @@ def list_imported_products(
         .order_by(Product.last_synced_at.desc().nullslast(), Product.id.desc())
         .offset(offset)
         .limit(page_size)
-    ).mappings()
+    ).mappings())
+
+    product_ids = [row["id"] for row in rows]
+    size_summary_by_product: dict[int, str] = {}
+    if product_ids:
+        variant_rows = db.execute(
+            select(ProductVariant.product_id, ProductVariant.size)
+            .where(ProductVariant.product_id.in_(product_ids))
+            .order_by(ProductVariant.product_id, ProductVariant.size)
+        ).all()
+        sizes_by_product: dict[int, list[str]] = {}
+        for product_id, size in variant_rows:
+            if not size:
+                continue
+            sizes = sizes_by_product.setdefault(product_id, [])
+            if size not in sizes:
+                sizes.append(size)
+        size_summary_by_product = {
+            product_id: ", ".join(sizes[:4]) + ("..." if len(sizes) > 4 else "")
+            for product_id, sizes in sizes_by_product.items()
+        }
 
     items = []
     for row in rows:
         data = dict(row)
+        data["size_summary"] = size_summary_by_product.get(data["id"])
         data["section_slugs"] = derive_section_slugs(SimpleNamespace(**data))
         items.append(AdminImportedProductSummary.model_validate(data))
 

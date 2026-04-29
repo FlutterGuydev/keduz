@@ -84,6 +84,14 @@ function StatusBadge({ active, children }) {
   )
 }
 
+function getApiErrorMessage(err, fallback) {
+  const detail = err?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map((item) => item?.msg || String(item)).join('; ')
+  if (detail && typeof detail === 'object') return detail.message || JSON.stringify(detail)
+  return err?.response?.data?.error || err?.response?.data?.message || fallback
+}
+
 export function AdminImportedProductsPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAdminToken()))
   const [products, setProducts] = useState([])
@@ -128,7 +136,7 @@ export function AdminImportedProductsPage() {
         clearAdminToken()
         setIsAuthenticated(false)
       }
-      setMessage(err.response?.data?.detail || 'Не удалось загрузить импортированные товары')
+      setMessage(getApiErrorMessage(err, 'Не удалось загрузить импортированные товары'))
     } finally {
       setLoading(false)
     }
@@ -160,7 +168,7 @@ export function AdminImportedProductsPage() {
       await loadStatus()
       await loadProducts({ ...params, page: 1 })
     } catch (err) {
-      setMessage(err.response?.data?.detail || `${label}: ошибка`)
+      setMessage(getApiErrorMessage(err, `${label}: ошибка`))
     } finally {
       setSyncing('')
     }

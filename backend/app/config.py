@@ -40,9 +40,13 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("BILLZ_API_URL", "billz_api_url"),
     )
+    billz_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("BILLZ_TOKEN", "billz_token"),
+    )
     billz_secret_key: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("BILLZ_SECRET_KEY", "billz_secret_key"),
+        validation_alias=AliasChoices("BILLZ_SECRET", "BILLZ_SECRET_KEY", "billz_secret_key"),
     )
     billz_iss: str | None = Field(
         default=None,

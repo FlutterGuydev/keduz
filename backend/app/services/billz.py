@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
@@ -75,8 +76,8 @@ def _ensure_billz_config() -> None:
     missing = []
     if not settings.billz_api_url:
         missing.append("BILLZ_API_URL")
-    if not settings.billz_secret_key:
-        missing.append("BILLZ_SECRET_KEY")
+    if not settings.billz_token and not settings.billz_secret_key:
+        missing.append("BILLZ_TOKEN or BILLZ_SECRET")
 
     if missing:
         raise HTTPException(status_code=503, detail=f"BILLZ config missing: {', '.join(missing)}")
@@ -85,6 +86,26 @@ def _ensure_billz_config() -> None:
 def _billz_url(endpoint: str) -> str:
     normalized_endpoint = endpoint if endpoint.startswith("/") else f"/{endpoint}"
     return f"{settings.billz_api_url.rstrip('/')}{normalized_endpoint}"
+
+
+def _preview_response_body(text: str, *, limit: int = 600) -> str:
+    compact = " ".join((text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return f"{compact[:limit]}..."
+
+
+def _billz_http_error_message(status_code: int, body: str, *, auth: bool = False) -> str:
+    body_preview = _preview_response_body(body, limit=300)
+    if status_code in {401, 403}:
+        return "BILLZ secret invalid" if auth else "BILLZ token invalid"
+    if status_code == 404:
+        return f"BILLZ endpoint not found. Check BILLZ_PRODUCTS_ENDPOINT. Response: {body_preview}"
+    if status_code in {400, 422}:
+        return f"BILLZ request rejected. Check endpoint, method, and pagination cursor. Response: {body_preview}"
+    if 500 <= status_code:
+        return f"BILLZ API server error {status_code}. Response: {body_preview}"
+    return f"BILLZ HTTP error {status_code}. Response: {body_preview}"
 
 
 def _pick(data: dict[str, Any], paths: tuple[tuple[str, ...], ...]) -> Any:
@@ -612,22 +633,27 @@ def _is_billz_token_expired(auth: BillzAuth) -> bool:
 async def _request_billz_auth_token(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
+            request_url = _billz_url(settings.billz_auth_endpoint)
+            logger.info("BILLZ auth request URL: %s", request_url)
             response = await client.post(
-                _billz_url(settings.billz_auth_endpoint),
+                request_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
             )
+            logger.info("BILLZ auth response status: %s", response.status_code)
+            logger.info("BILLZ auth response body preview: %s", _preview_response_body(response.text))
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as exc:
-        logger.warning("BILLZ auth failed: %s", exc.response.text)
+        error_message = _billz_http_error_message(exc.response.status_code, exc.response.text, auth=True)
+        logger.warning("BILLZ auth failed: status=%s detail=%s", exc.response.status_code, error_message)
         raise HTTPException(
             status_code=exc.response.status_code,
-            detail=f"BILLZ auth HTTP error: {exc.response.text}",
+            detail=error_message,
         ) from exc
     except httpx.RequestError as exc:
         logger.exception("BILLZ auth request failed")
-        raise HTTPException(status_code=502, detail=f"BILLZ auth request failed: {str(exc)}") from exc
+        raise HTTPException(status_code=502, detail=f"BILLZ backend auth request failed: {str(exc)}") from exc
     except ValueError as exc:
         raise HTTPException(status_code=502, detail="BILLZ auth returned invalid JSON") from exc
 
@@ -699,6 +725,10 @@ def normalize_billz_product(raw: dict[str, Any]) -> NormalizedBillzProduct | Non
 async def get_billz_access_token(db: Session, *, authenticate: bool = False) -> str:
     _ensure_billz_config()
 
+    if settings.billz_token:
+        logger.info("Using BILLZ_TOKEN from environment for API Authorization header")
+        return settings.billz_token
+
     if not authenticate:
         auth = _get_latest_billz_auth(db)
         if auth is None:
@@ -735,24 +765,37 @@ async def billz_request(
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.request(
+            request = client.build_request(
                 method=method,
                 url=_billz_url(endpoint),
                 json=payload if method != "GET" else None,
                 params=params,
                 headers=await build_headers(db),
             )
+            logger.info("BILLZ request URL: %s", request.url)
+            response = await client.send(request)
+            logger.info("BILLZ response status: %s", response.status_code)
+            logger.info("BILLZ response body preview: %s", _preview_response_body(response.text))
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            products_count = len(_extract_products(data))
+            logger.info("BILLZ parsed products count: %s", products_count)
+            return data
     except httpx.HTTPStatusError as exc:
-        logger.warning("BILLZ request failed: %s %s", endpoint, exc.response.text)
+        error_message = _billz_http_error_message(exc.response.status_code, exc.response.text)
+        logger.warning(
+            "BILLZ request failed: url=%s status=%s detail=%s",
+            exc.request.url,
+            exc.response.status_code,
+            error_message,
+        )
         raise HTTPException(
             status_code=exc.response.status_code,
-            detail=f"BILLZ request HTTP error: {exc.response.text}",
+            detail=error_message,
         ) from exc
     except httpx.RequestError as exc:
         logger.exception("BILLZ request error for %s", endpoint)
-        raise HTTPException(status_code=502, detail=f"BILLZ request failed: {str(exc)}") from exc
+        raise HTTPException(status_code=502, detail=f"BILLZ backend request failed: {str(exc)}") from exc
     except ValueError as exc:
         raise HTTPException(status_code=502, detail="BILLZ returned invalid JSON") from exc
 
@@ -824,8 +867,18 @@ async def _fetch_billz_products_with_status(db: Session) -> BillzProductFetchRes
             complete = True
             break
         if page_added == 0:
-            break
+            raise HTTPException(
+                status_code=502,
+                detail="BILLZ response format changed: products were returned but no id/SKU fields could be mapped",
+            )
 
+    logger.info(
+        "BILLZ product fetch complete: raw_seen=%s normalized=%s complete=%s expected_count=%s",
+        raw_seen,
+        len(normalized),
+        complete,
+        total_count,
+    )
     return BillzProductFetchResult(
         products=_attach_grouped_variants(normalized),
         complete=complete,
@@ -859,21 +912,27 @@ async def _fetch_billz_products_batch(db: Session, *, offset: int, limit: int) -
                 json=request_payload,
                 headers=await build_headers(db),
             )
-            logger.info("BILLZ next-batch resolved URL: %s", request.url)
+            logger.info("BILLZ next-batch request URL: %s", request.url)
             response = await client.send(request)
             logger.info("BILLZ next-batch response status: %s", response.status_code)
-            if response.is_error:
-                logger.warning("BILLZ next-batch error body: %s", response.text)
+            logger.info("BILLZ next-batch response body preview: %s", _preview_response_body(response.text))
             response.raise_for_status()
             response_data = response.json()
     except httpx.HTTPStatusError as exc:
+        error_message = _billz_http_error_message(exc.response.status_code, exc.response.text)
+        logger.warning(
+            "BILLZ next-batch HTTP error: url=%s status=%s detail=%s",
+            exc.request.url,
+            exc.response.status_code,
+            error_message,
+        )
         raise HTTPException(
             status_code=exc.response.status_code,
-            detail=f"BILLZ batch request HTTP error: {exc.response.text}",
+            detail=error_message,
         ) from exc
     except httpx.RequestError as exc:
         logger.exception("BILLZ next-batch request failed: url=%s offset=%s limit=%s", request_url, offset, limit)
-        raise HTTPException(status_code=502, detail=f"BILLZ batch request failed: {str(exc)}") from exc
+        raise HTTPException(status_code=502, detail=f"BILLZ backend request failed: {str(exc)}") from exc
     except ValueError as exc:
         raise HTTPException(status_code=502, detail="BILLZ batch request returned invalid JSON") from exc
 
@@ -894,6 +953,18 @@ async def _fetch_billz_products_batch(db: Session, *, offset: int, limit: int) -
         normalized.append(product)
 
     raw_count = len(raw_products)
+    logger.info(
+        "BILLZ next-batch parsed products: raw=%s normalized=%s offset=%s limit=%s",
+        raw_count,
+        len(normalized),
+        offset,
+        limit,
+    )
+    if raw_count > 0 and not normalized:
+        raise HTTPException(
+            status_code=502,
+            detail="BILLZ response format changed: products were returned but no id/SKU fields could be mapped",
+        )
     if total_count is not None:
         complete = offset + raw_count >= total_count
     else:
@@ -1311,6 +1382,15 @@ def _sync_imported_products(
             errors.append(f"{item.billz_id or item.sku}: {exc}")
             skipped += 1
 
+    logger.info(
+        "BILLZ database save result: incoming=%s saved=%s created=%s updated=%s skipped=%s errors=%s",
+        len(imported),
+        created + updated,
+        created,
+        updated,
+        skipped,
+        len(errors),
+    )
     return {
         "created": created,
         "updated": updated,
@@ -1360,6 +1440,8 @@ async def sync_products_from_billz(db: Session, *, mode: str = "full") -> dict[s
     await test_billz_auth(db)
     fetch_result = await _fetch_billz_products_with_status(db)
     imported = fetch_result.products
+    if fetch_result.raw_count == 0:
+        raise HTTPException(status_code=502, detail="API response empty: BILLZ returned 0 products")
     fetch_complete = fetch_result.complete
     if mode in {"products", "full"} and not fetch_complete:
         raise HTTPException(
@@ -1409,9 +1491,10 @@ async def sync_products_from_billz(db: Session, *, mode: str = "full") -> dict[s
     )
     db.commit()
     logger.info(
-        "BILLZ %s sync complete: fetched=%s products_created=%s products_updated=%s products_marked_inactive=%s skipped=%s",
+        "BILLZ %s sync complete: fetched=%s saved=%s products_created=%s products_updated=%s products_marked_inactive=%s skipped=%s",
         mode,
         len(imported),
+        created + updated,
         created,
         updated,
         marked_inactive,
@@ -1435,7 +1518,12 @@ async def run_full_sync(db: Session) -> dict[str, Any]:
         return await sync_products_from_billz(db, mode="full")
     except Exception as exc:
         db.rollback()
-        error_message = str(exc.detail) if isinstance(exc, HTTPException) else str(exc)
+        if isinstance(exc, HTTPException):
+            error_message = str(exc.detail)
+        elif isinstance(exc, SQLAlchemyError):
+            error_message = f"Database insert failed: {exc}"
+        else:
+            error_message = str(exc)
         _record_sync_status(
             db,
             mode="full",
@@ -1504,6 +1592,44 @@ async def run_next_batch_sync(db: Session, *, batch_size: int | None = None) -> 
         )
         fetch_result = await _fetch_billz_products_batch(db, offset=offset, limit=effective_batch_size)
         imported = fetch_result.products
+        if fetch_result.raw_count == 0 and offset == 0:
+            message = "API response empty: BILLZ returned 0 products at cursor 0."
+            logger.warning(
+                "BILLZ next-batch empty response: offset=%s limit=%s expected_count=%s",
+                offset,
+                effective_batch_size,
+                fetch_result.expected_count,
+            )
+            _record_sync_status(
+                db,
+                mode="full",
+                status="failed",
+                message=message,
+                last_offset=0,
+                batch_size=effective_batch_size,
+                has_more=True,
+                active_cycle_id=cycle_id,
+            )
+            db.commit()
+            return {
+                "success": False,
+                "mode": "next-batch",
+                "message": message,
+                "error": "API response empty",
+                "fetched": 0,
+                "fetched_count": 0,
+                "created": 0,
+                "created_count": 0,
+                "updated": 0,
+                "updated_count": 0,
+                "attached_by_sku": 0,
+                "marked_inactive": 0,
+                "skipped": 0,
+                "errors": ["API response empty"],
+                "next_offset": 0,
+                "has_more": True,
+                "batch_size": effective_batch_size,
+            }
         result = _sync_imported_products(
             db,
             imported,
@@ -1512,7 +1638,10 @@ async def run_next_batch_sync(db: Session, *, batch_size: int | None = None) -> 
             create_missing=True,
             cycle_id=cycle_id,
         )
-        next_offset = offset if fetch_result.raw_count == 0 else offset + effective_batch_size
+        if fetch_result.raw_count > 0 and result["created"] + result["updated"] == 0:
+            error_message = result["errors"][0] if result["errors"] else "Database insert failed"
+            raise HTTPException(status_code=500, detail=f"Database insert failed: {error_message}")
+        next_offset = offset if fetch_result.raw_count == 0 else offset + fetch_result.raw_count
         has_more = False if fetch_result.raw_count == 0 else not fetch_result.complete
         status_value = "success" if not result["errors"] else "partial_success"
         message = (
@@ -1540,10 +1669,11 @@ async def run_next_batch_sync(db: Session, *, batch_size: int | None = None) -> 
         )
         db.commit()
         logger.info(
-            "BILLZ batch sync complete: offset=%s next_offset=%s fetched=%s created=%s updated=%s has_more=%s",
+            "BILLZ batch sync complete: offset=%s next_offset=%s fetched=%s saved=%s created=%s updated=%s has_more=%s",
             offset,
             next_offset,
             fetch_result.raw_count,
+            result["created"] + result["updated"],
             result["created"],
             result["updated"],
             has_more,
@@ -1569,7 +1699,12 @@ async def run_next_batch_sync(db: Session, *, batch_size: int | None = None) -> 
         }
     except Exception as exc:
         db.rollback()
-        error_message = str(exc.detail) if isinstance(exc, HTTPException) else str(exc)
+        if isinstance(exc, HTTPException):
+            error_message = str(exc.detail)
+        elif isinstance(exc, SQLAlchemyError):
+            error_message = f"Database insert failed: {exc}"
+        else:
+            error_message = str(exc)
         logger.exception(
             "BILLZ batch sync failed: url=%s offset=%s limit=%s error=%s",
             _billz_url(settings.billz_products_endpoint) if settings.billz_api_url else settings.billz_products_endpoint,
@@ -1679,7 +1814,12 @@ async def run_stock_sync(db: Session) -> dict[str, Any]:
         return await sync_products_from_billz(db, mode="stock")
     except Exception as exc:
         db.rollback()
-        error_message = str(exc.detail) if isinstance(exc, HTTPException) else str(exc)
+        if isinstance(exc, HTTPException):
+            error_message = str(exc.detail)
+        elif isinstance(exc, SQLAlchemyError):
+            error_message = f"Database insert failed: {exc}"
+        else:
+            error_message = str(exc)
         _record_sync_status(
             db,
             mode="stock",
@@ -1768,7 +1908,12 @@ async def run_movement_sync(db: Session) -> dict[str, Any]:
         }
     except Exception as exc:
         db.rollback()
-        error_message = str(exc.detail) if isinstance(exc, HTTPException) else str(exc)
+        if isinstance(exc, HTTPException):
+            error_message = str(exc.detail)
+        elif isinstance(exc, SQLAlchemyError):
+            error_message = f"Database insert failed: {exc}"
+        else:
+            error_message = str(exc)
         _record_sync_status(
             db,
             mode="stock",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { FiHeart, FiX } from 'react-icons/fi'
+import { FiGrid, FiHeart, FiX } from 'react-icons/fi'
 import Swal from 'sweetalert2'
 import { translations } from '../i18n/translations'
 import { useShopStore } from '../store/useShopStore'
@@ -106,6 +106,8 @@ export function BackendProductPage() {
   const [sizeError, setSizeError] = useState(false)
   const [orderAccepted, setOrderAccepted] = useState(false)
   const [orderModalOpen, setOrderModalOpen] = useState(false)
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const [touchStartX, setTouchStartX] = useState(null)
   const [orderForm, setOrderForm] = useState({ full_name: '', phone: '' })
   const [orderError, setOrderError] = useState('')
   const [orderSubmitting, setOrderSubmitting] = useState(false)
@@ -155,6 +157,7 @@ export function BackendProductPage() {
         setSizeError(false)
         setOrderAccepted(false)
         setOrderModalOpen(false)
+        setGalleryOpen(false)
         setOrderForm({ full_name: '', phone: '' })
         setOrderError('')
       } catch (err) {
@@ -190,6 +193,26 @@ export function BackendProductPage() {
   const availableColors = product?.colors || []
   const showColorSelector = availableColors.length > 1
   const canAddToCart = hasSizes ? Boolean(selectedStockItem?.in_stock) : inStock
+  const activeImageIndex = Math.max(0, images.findIndex((image) => image === activeImage))
+
+  const setActiveImageByIndex = (nextIndex) => {
+    if (!images.length) return
+    const normalizedIndex = (nextIndex + images.length) % images.length
+    setActiveImage(images[normalizedIndex])
+  }
+
+  const handleImageTouchStart = (event) => {
+    setTouchStartX(event.touches[0]?.clientX ?? null)
+  }
+
+  const handleImageTouchEnd = (event) => {
+    if (touchStartX === null || images.length <= 1) return
+    const endX = event.changedTouches[0]?.clientX ?? touchStartX
+    const delta = touchStartX - endX
+    setTouchStartX(null)
+    if (Math.abs(delta) < 42) return
+    setActiveImageByIndex(activeImageIndex + (delta > 0 ? 1 : -1))
+  }
 
   const handleOrder = () => {
     if (hasSizes && !selectedSize) {
@@ -231,11 +254,11 @@ export function BackendProductPage() {
       Swal.fire({
         icon: 'success',
         title: 'Buyurtma qabul qilindi!',
-        text: 'Tez orada siz bilan bog‘lanamiz.',
+        text: "Tez orada siz bilan bog'lanamiz.",
         confirmButtonColor: '#ff3b30',
       })
     } catch (err) {
-      setOrderError(err.response?.data?.detail || 'Buyurtmani yuborib bo‘lmadi. Iltimos, telefon orqali bog‘laning.')
+      setOrderError(err.response?.data?.detail || "Buyurtmani yuborib bo'lmadi. Iltimos, telefon orqali bog'laning.")
     } finally {
       setOrderSubmitting(false)
     }
@@ -258,51 +281,83 @@ export function BackendProductPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1560px] px-3 py-6 sm:px-6 sm:py-10 lg:px-10 xl:px-14">
-      <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr] lg:gap-8 xl:gap-10">
-        <div className="space-y-3 sm:space-y-4">
-          <div className="overflow-hidden rounded-[18px] bg-[#f4f4f2] shadow-[0_18px_48px_rgba(15,15,16,0.055)] sm:rounded-[28px]">
-            {activeImage ? (
-              <img src={activeImage} alt={displayName} onError={handleImageError} className="h-[430px] w-full object-cover object-center sm:h-[560px] lg:h-[650px]" />
-            ) : (
-              <div className="flex h-[430px] w-full items-center justify-center text-xl font-semibold text-zinc-400 sm:h-[560px] lg:h-[650px]">
-                KED UZ
-              </div>
-            )}
-          </div>
-          {images.length > 1 ? (
-            <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-4 sm:gap-4 sm:overflow-visible sm:pb-0">
-              {images.map((image) => (
-                <button
-                  key={image}
-                  type="button"
-                  onClick={() => setActiveImage(image)}
-                  className={`w-24 shrink-0 overflow-hidden rounded-[14px] border bg-white transition-all sm:w-auto sm:rounded-[20px] ${activeImage === image ? 'border-black shadow-[0_12px_28px_rgba(15,15,16,0.08)]' : 'border-black/8 hover:border-black/20'}`}
-                >
-                  <img src={image} alt={displayName} onError={handleImageError} className="h-24 w-full object-cover sm:h-28" />
-                </button>
-              ))}
+    <div className="bg-[#fcfbf8]">
+      <section className="px-0 pb-5 sm:px-5 sm:pb-8 lg:px-8 xl:px-10">
+        <div
+          className="relative mx-auto h-[66vh] min-h-[430px] max-h-[760px] max-w-[1560px] overflow-hidden bg-[#f2f0eb] shadow-[0_24px_70px_rgba(15,15,16,0.09)] sm:rounded-[30px] lg:h-[72vh]"
+          onTouchStart={handleImageTouchStart}
+          onTouchEnd={handleImageTouchEnd}
+        >
+          {activeImage ? (
+            <img
+              key={activeImage}
+              src={activeImage}
+              alt={displayName}
+              onError={handleImageError}
+              className="h-full w-full object-cover object-center transition-all duration-500 ease-out"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-zinc-400">
+              KED UZ
             </div>
-          ) : null}
+          )}
+
+          <button
+            type="button"
+            onClick={() => toggleFavorite(product.id)}
+            className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/90 text-black shadow-[0_12px_28px_rgba(0,0,0,0.14)] backdrop-blur transition-transform hover:scale-105"
+            aria-label="Sevimlilarga qo'shish"
+          >
+            <FiHeart
+              size={20}
+              strokeWidth={1.8}
+              className={favorites.includes(product.id) ? 'fill-[#ff3b30] text-[#ff3b30]' : ''}
+            />
+          </button>
+
+          <div className="absolute inset-x-0 bottom-4 flex justify-center px-16">
+            <div className="max-w-full rounded-lg bg-black/40 px-3 py-1.5 text-center text-sm font-semibold text-white backdrop-blur sm:px-4 sm:py-2 sm:text-base">
+              {displayName}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setGalleryOpen(true)}
+            className="absolute bottom-4 right-4 grid h-10 w-10 place-items-center rounded-lg bg-white/90 text-black shadow-[0_12px_28px_rgba(0,0,0,0.16)] backdrop-blur transition-transform hover:scale-105"
+            aria-label="Galereyani ochish"
+          >
+            <FiGrid size={18} />
+          </button>
         </div>
 
-        <div className="rounded-[18px] border border-black/6 bg-white/96 p-5 shadow-[0_18px_48px_rgba(15,15,16,0.055)] sm:rounded-[28px] sm:p-8 lg:sticky lg:top-24 lg:self-start">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-extrabold leading-tight text-black sm:text-4xl lg:text-5xl">
-                {displayName}
-              </h1>
-            </div>
-            <button
-              type="button"
-              onClick={() => toggleFavorite(product.id)}
-              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-black/8 bg-white transition-colors hover:border-black/20"
-            >
-              <FiHeart size={21} strokeWidth={1.8} className={favorites.includes(product.id) ? 'fill-[#ff3b30] text-[#ff3b30]' : ''} />
-            </button>
+        {images.length > 1 ? (
+          <div className="mx-auto mt-3 flex max-w-[1560px] gap-2 overflow-x-auto px-3 pb-1 sm:mt-4 sm:px-0">
+            {images.map((image, index) => (
+              <button
+                key={image}
+                type="button"
+                onClick={() => setActiveImageByIndex(index)}
+                className={`h-20 w-16 shrink-0 overflow-hidden rounded-xl border bg-white transition-all sm:h-24 sm:w-20 ${
+                  activeImage === image
+                    ? 'border-black shadow-[0_12px_28px_rgba(15,15,16,0.12)]'
+                    : 'border-black/10 opacity-75 hover:opacity-100'
+                }`}
+                aria-label={`${displayName} rasmi ${index + 1}`}
+              >
+                <img src={image} alt={displayName} onError={handleImageError} className="h-full w-full object-cover object-center" />
+              </button>
+            ))}
           </div>
+        ) : null}
+      </section>
 
-          <div className="mt-5 flex flex-wrap items-end gap-3 sm:mt-6">
+      <section className="mx-auto grid max-w-[1240px] gap-8 px-4 pb-12 pt-2 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8 lg:pb-16">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-extrabold leading-tight text-black sm:text-5xl">
+            {displayName}
+          </h1>
+          <div className="mt-5 flex flex-wrap items-end gap-3">
             <span className="text-2xl font-extrabold text-black sm:text-3xl">
               {formatPrice(activePrice)}
             </span>
@@ -312,19 +367,19 @@ export function BackendProductPage() {
               </span>
             ) : null}
           </div>
-
           <div className={`mt-5 inline-flex rounded-full px-3 py-1.5 text-xs font-bold uppercase ${inStock ? 'bg-green-50 text-green-700' : 'bg-zinc-100 text-zinc-500'}`}>
             {inStock ? `Mavjud: ${visibleStockQuantity}` : 'Mavjud emas'}
           </div>
-
           {description ? (
-            <p className="mt-6 text-sm leading-7 text-zinc-600">
+            <p className="mt-7 max-w-2xl text-sm leading-7 text-zinc-600 sm:text-base sm:leading-8">
               {description}
             </p>
           ) : null}
+        </div>
 
+        <aside className="rounded-[24px] border border-black/6 bg-white/95 p-5 shadow-[0_18px_48px_rgba(15,15,16,0.055)] sm:p-6 lg:sticky lg:top-24 lg:self-start">
           {showColorSelector ? (
-            <div className="mt-8">
+            <div>
               <p className="text-sm font-bold text-black">{t.colorLabel}</p>
               <div className="mt-3 flex gap-3">
                 {availableColors.map((color) => (
@@ -342,7 +397,7 @@ export function BackendProductPage() {
           ) : null}
 
           {stockItems.length ? (
-            <div className="mt-8">
+            <div className={showColorSelector ? 'mt-8' : ''}>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-bold text-black">{t.sizeLabel}</p>
                 <div className="max-w-[58%] text-right sm:max-w-none">
@@ -379,33 +434,74 @@ export function BackendProductPage() {
               {sizeError ? <p className="mt-3 text-xs font-semibold text-[#ff3b30]">{t.sizeRequired}</p> : null}
               {selectedSize ? (
                 <p className="mt-3 text-sm font-semibold text-zinc-700">
-                  Tanlangan o‘lcham: <span className="text-black">{selectedSize}</span>
+                  Tanlangan o'lcham: <span className="text-black">{selectedSize}</span>
                   {selectedStockItem ? <span className="text-zinc-500"> · Omborda: {selectedStockItem.stock_quantity}</span> : null}
                 </p>
               ) : null}
             </div>
           ) : null}
 
-          <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap sm:gap-4">
+          <div className="mt-8 grid gap-3">
             <button
               type="button"
               disabled={!canAddToCart}
               onClick={handleOrder}
-              className="inline-flex min-h-12 justify-center rounded-xl bg-[#ff3b30] px-6 py-4 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(255,59,48,0.24)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_46px_rgba(255,59,48,0.32)] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 disabled:shadow-none sm:flex-none sm:rounded-full"
+              className="inline-flex min-h-12 justify-center rounded-xl bg-[#ff3b30] px-6 py-4 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(255,59,48,0.24)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_46px_rgba(255,59,48,0.32)] disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 disabled:shadow-none sm:rounded-full"
             >
               {canAddToCart ? 'Buyurtma berish' : 'Mavjud emas'}
             </button>
-            <Link to="/catalog" className="inline-flex min-h-12 justify-center rounded-xl border border-black/10 bg-white px-6 py-4 text-sm font-semibold text-black transition-colors hover:border-black hover:bg-black hover:text-white sm:flex-none sm:rounded-full">
+            <Link to="/catalog" className="inline-flex min-h-12 justify-center rounded-xl border border-black/10 bg-white px-6 py-4 text-sm font-semibold text-black transition-colors hover:border-black hover:bg-black hover:text-white sm:rounded-full">
               {t.breadcrumbsCatalog}
             </Link>
           </div>
           {orderAccepted ? (
             <p className="mt-4 rounded-[18px] bg-green-50 px-4 py-3 text-sm font-semibold leading-6 text-green-700">
-              Buyurtma qabul qilindi! Tez orada siz bilan bog‘lanamiz.
+              Buyurtma qabul qilindi! Tez orada siz bilan bog'lanamiz.
             </p>
           ) : null}
+        </aside>
+      </section>
+
+      {galleryOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/92 px-4 py-5 text-white">
+          <button
+            type="button"
+            onClick={() => setGalleryOpen(false)}
+            className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+            aria-label="Galereyani yopish"
+          >
+            <FiX size={20} />
+          </button>
+          <div className="mx-auto flex h-full max-w-6xl flex-col gap-4">
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <img
+                src={activeImage}
+                alt={displayName}
+                onError={handleImageError}
+                className="max-h-full max-w-full rounded-[20px] object-contain"
+              />
+            </div>
+            {images.length > 1 ? (
+              <div className="flex justify-start gap-2 overflow-x-auto pb-2 sm:justify-center">
+                {images.map((image, index) => (
+                  <button
+                    key={image}
+                    type="button"
+                    onClick={() => setActiveImageByIndex(index)}
+                    className={`h-20 w-16 shrink-0 overflow-hidden rounded-xl border bg-white/10 transition-all sm:h-24 sm:w-20 ${
+                      activeImage === image ? 'border-white' : 'border-white/20 opacity-70 hover:opacity-100'
+                    }`}
+                    aria-label={`${displayName} rasmi ${index + 1}`}
+                  >
+                    <img src={image} alt={displayName} onError={handleImageError} className="h-full w-full object-cover object-center" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
+
       {orderModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
           <form
@@ -416,14 +512,14 @@ export function BackendProductPage() {
               <div>
                 <h2 className="text-2xl font-extrabold text-black">Buyurtma qoldiring</h2>
                 <p className="mt-2 text-sm leading-6 text-zinc-600">
-                  Operator siz bilan bog‘lanadi.
+                  Operator siz bilan bog'lanadi.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOrderModalOpen(false)}
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-black/10"
-                aria-label="Закрыть"
+                aria-label="Yopish"
               >
                 <FiX size={18} />
               </button>
@@ -431,7 +527,7 @@ export function BackendProductPage() {
 
             <div className="mt-5 rounded-[20px] bg-[#f7f5f2] p-4 text-sm text-zinc-700">
               <p className="font-bold text-black">{displayName}</p>
-              <p className="mt-1">O‘lcham: {selectedSize || '-'}</p>
+              <p className="mt-1">O'lcham: {selectedSize || '-'}</p>
               <p>Narx: {formatPrice(activePrice)}</p>
             </div>
 
@@ -458,7 +554,7 @@ export function BackendProductPage() {
               >
                 {orderSubmitting ? 'Yuborilmoqda...' : 'Buyurtma qoldirish'}
               </button>
-              <p className="text-center text-xs text-zinc-500">Buyurtma qoldiring, operator siz bilan bog‘lanadi</p>
+              <p className="text-center text-xs text-zinc-500">Buyurtma qoldiring, operator siz bilan bog'lanadi</p>
             </div>
           </form>
         </div>

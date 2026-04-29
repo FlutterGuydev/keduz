@@ -36,7 +36,7 @@ export function ContactPage() {
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-black text-white">
                   <FiMapPin size={19} />
                 </span>
-                <span>{language === 'uz' ? 'Yunusobod | Chilonzor' : 'Юнусабад | Чиланзар'}</span>
+                <span>Yunusobod | Chilonzor</span>
               </div>
               <p className="rounded-lg border border-black/6 px-4 py-3">10:00 – 22:00</p>
             </div>
